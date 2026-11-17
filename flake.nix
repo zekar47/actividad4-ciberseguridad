@@ -32,7 +32,7 @@
           export A4_ROOT="$PWD"
           export A4_LAB="$PWD/.lab"
           export PATH="$A4_LAB/bin:$PATH"
-          echo "a4: entorno cargado (php $(php -r 'echo PHP_VERSION;'), $(mariadbd --version | cut -d' ' -f3))"
+          echo "a4: entorno cargado (php $(php -r 'echo PHP_VERSION;'))"
         '';
       };
     };

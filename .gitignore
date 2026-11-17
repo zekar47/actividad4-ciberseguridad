@@ -2,7 +2,7 @@ defaults.yaml
 header.tex
 homework*
 instrucciones*
-Makefile
+/Makefile
 metadata.yaml
 template.latex
 
@@ -12,5 +12,7 @@ result
 result-*
 # --- Artefactos de compilación de la parte 2 ---
 parte2/api
+parte2/config.h
 parte2/*.o
+parte2/evidence/server-*.log
 __pycache__/

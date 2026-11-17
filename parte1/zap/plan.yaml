@@ -4,10 +4,13 @@ env:
       urls:
         - http://127.0.0.1:8081
       includePaths:
-        - http://127\.0\.0\.1:8081.*
+        - http://127\.0\.0\.1:8081/$
+        - http://127\.0\.0\.1:8081/index\.php.*
+        - http://127\.0\.0\.1:8081/vulnerabilities/[a-z_]+/.*
       excludePaths:
         - http://127\.0\.0\.1:8081/(setup|logout)\.php.*
         - http://127\.0\.0\.1:8081/phpinfo\.php.*
+        - .*(var/www|\.\./|mydir).*
       authentication:
         method: manual
       sessionManagement:
@@ -21,34 +24,69 @@ env:
     progressToStdout: true
 
 jobs:
+  # Sembrar en el historial los módulos que el spider no descubre por sí solo
+  # (enlaces/AJAX) para que el escáner activo también los evalúe.
+  - type: requestor
+    requests:
+      - url: "http://127.0.0.1:8081/index.php"
+        responseCode: 200
+      - url: "http://127.0.0.1:8081/vulnerabilities/sqli/?id=1&Submit=Submit"
+        responseCode: 200
+      - url: "http://127.0.0.1:8081/vulnerabilities/xss_r/?name=test"
+        responseCode: 200
+      - url: "http://127.0.0.1:8081/vulnerabilities/authbypass/get_user_data.php"
+        responseCode: 200
+
   - type: spider
     parameters:
       context: dvwa
-      maxDuration: 5
-      maxDepth: 6
+      maxDuration: 3
+      maxDepth: 4
       threadCount: 4
       processForm: true
       postForm: true
 
   - type: passiveScan-wait
     parameters:
-      maxDuration: 3
+      maxDuration: 2
+
+  # Escaneo activo dirigido a los tres módulos del alcance. Se incluye la
+  # cadena de consulta para que el escáner pruebe los parámetros reales
+  # (`id` y `name`); si solo se indica la ruta, no hay nada que inyectar.
+  # Así se evita además que el escáner recorra rutas de path traversal que el
+  # servidor embebido de PHP resuelve con 200 y harían crecer el sitio.
+  - type: activeScan
+    parameters:
+      context: dvwa
+      url: "http://127.0.0.1:8081/vulnerabilities/sqli/?id=1&Submit=Submit"
+      maxRuleDurationInMins: 1
+      maxScanDurationInMins: 4
+      threadPerHost: 4
 
   - type: activeScan
     parameters:
       context: dvwa
-      maxRuleDurationInMins: 2
-      maxScanDurationInMins: 12
+      url: "http://127.0.0.1:8081/vulnerabilities/xss_r/?name=test"
+      maxRuleDurationInMins: 1
+      maxScanDurationInMins: 3
+      threadPerHost: 4
+
+  - type: activeScan
+    parameters:
+      context: dvwa
+      url: "http://127.0.0.1:8081/vulnerabilities/authbypass/get_user_data.php"
+      maxRuleDurationInMins: 1
+      maxScanDurationInMins: 2
       threadPerHost: 4
 
   - type: report
     parameters:
       template: traditional-html
-      reportDir: .
+      reportDir: ../evidence
       reportFile: zap-report.html
 
   - type: report
     parameters:
       template: traditional-json
-      reportDir: .
+      reportDir: ../evidence
       reportFile: zap-report.json

@@ -24,7 +24,11 @@ export ZAP_AUTH_HEADER_SITE=127.0.0.1
 
 cd "$EVIDENCE"
 echo "[zap] escaneando http://127.0.0.1:8081 (puede tardar varios minutos)"
-zap -cmd -autorun "$ROOT/parte1/zap/plan.yaml" -dir "$LAB/zap/home"
+# HOME aislado: el wrapper de Nix crea allí un config.xml escribible.
+# Sesión nueva en cada ejecución para no arrastrar el árbol de sitios anterior.
+env HOME="$LAB/zap/home" zap -cmd \
+  -newsession "$LAB/zap/session-$(date +%Y%m%d-%H%M%S).session" \
+  -autorun "$ROOT/parte1/zap/plan.yaml"
 
 echo "[zap] informes:"
 ls -lh "$EVIDENCE"/zap-report.*

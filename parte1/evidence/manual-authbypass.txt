@@ -1,0 +1,22 @@
+# Broken Access Control (DVWA 2.5, seguridad=low)
+# Endpoint: GET /vulnerabilities/authbypass/get_user_data.php
+# Petición SIN cookie de sesión:
+
+HTTP/1.1 200 OK
+Host: 127.0.0.1:8081
+Date: Tue, 17 Nov 2026 05:31:54 GMT
+Connection: close
+X-Powered-By: PHP/8.5.12
+Set-Cookie: security=low; path=/
+Set-Cookie: PHPSESSID=7aacbb5af8f8f0336ae8d284c40b1164; expires=Wed, 18 Nov 2026 05:31:54 GMT; Max-Age=86400; path=/; domain=127.0.0.1
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate
+Pragma: no-cache
+Content-type: text/html; charset=UTF-8
+
+
+[{"user_id":"1","first_name":"admin","surname":"admin"},{"user_id":"2","first_name":"Gordon","surname":"Brown"},{"user_id":"3","first_name":"Hack","surname":"Me"},{"user_id":"4","first_name":"Pablo","surname":"Picasso"},{"user_id":"5","first_name":"Bob","surname":"Smith"}]
+
+# change_user_details.php tampoco exige sesión ni rol admin (seguridad=low):
+16:if ($_SERVER['REQUEST_METHOD'] != "POST") {
+47:$query = "UPDATE users SET first_name = '" . $data->first_name . "', last_name = '" .  $data->surname . "' where user_id = " . $data->id . "";

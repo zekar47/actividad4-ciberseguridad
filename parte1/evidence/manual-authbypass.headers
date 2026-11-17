@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+Host: 127.0.0.1:8081
+Date: Tue, 17 Nov 2026 05:31:54 GMT
+Connection: close
+X-Powered-By: PHP/8.5.12
+Set-Cookie: security=low; path=/
+Set-Cookie: PHPSESSID=7aacbb5af8f8f0336ae8d284c40b1164; expires=Wed, 18 Nov 2026 05:31:54 GMT; Max-Age=86400; path=/; domain=127.0.0.1
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate
+Pragma: no-cache
+Content-type: text/html; charset=UTF-8
+

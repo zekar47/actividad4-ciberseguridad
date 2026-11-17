@@ -1,0 +1,157 @@
+{
+  "info": {
+    "name": "Actividad 4 - API segura (OAuth2 + JWT)",
+    "description": "Colección de Postman para la parte 2. Ejecuta primero 'OAuth 2.0 > Token' para guardar accessToken; después las peticiones de la carpeta API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8080" },
+    { "key": "accessToken", "value": "" },
+    { "key": "clientId", "value": "demo-client" },
+    { "key": "clientSecret", "value": "lab-only-client-secret-change-me" }
+  ],
+  "item": [
+    {
+      "name": "OAuth 2.0",
+      "item": [
+        {
+          "name": "Token (client credentials)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('token_type Bearer', () => pm.expect(body.token_type).to.eql('Bearer'));",
+                  "pm.collectionVariables.set('accessToken', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "{{clientId}}" },
+                { "key": "client_secret", "value": "{{clientSecret}}" },
+                { "key": "scope", "value": "read transfer" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/oauth/token", "host": ["{{baseUrl}}"], "path": ["oauth", "token"] }
+          }
+        },
+        {
+          "name": "Token con secreto incorrecto (401)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "{{clientId}}" },
+                { "key": "client_secret", "value": "incorrecto" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/oauth/token", "host": ["{{baseUrl}}"], "path": ["oauth", "token"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "API",
+      "item": [
+        {
+          "name": "Perfil (JWT)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/profile", "host": ["{{baseUrl}}"], "path": ["api", "v1", "profile"] }
+          }
+        },
+        {
+          "name": "Transferencia válida",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"account\":\"ABC-1234\",\"amount\":250}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transfers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transfers"] }
+          }
+        },
+        {
+          "name": "Transferencia con inyección SQL (400)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"account\":\"ABC-1234' OR '1'='1\",\"amount\":250}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transfers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transfers"] }
+          }
+        },
+        {
+          "name": "Transferencia con XSS (400)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"account\":\"<script>alert(1)</script>\",\"amount\":1}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/transfers", "host": ["{{baseUrl}}"], "path": ["api", "v1", "transfers"] }
+          }
+        },
+        {
+          "name": "Sin token (401)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('401', () => pm.response.to.have.status(401));"] } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/profile", "host": ["{{baseUrl}}"], "path": ["api", "v1", "profile"] }
+          }
+        }
+      ]
+    }
+  ]
+}

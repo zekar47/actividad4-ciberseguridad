@@ -1,0 +1,55 @@
+Pruebas de a4-api
+Fecha: 2026-11-16 23:45:25
+Resultado: 51/51 correctas
+
+PASS  healthz responde 200
+PASS  token sin credenciales -> 400
+PASS  token con secreto incorrecto -> 401
+PASS  scope no permitido -> 400
+PASS  grant_type no soportado -> 400
+PASS  token válido accede a /profile
+PASS  respuesta no se cachea
+PASS  token manipulado -> 401
+PASS  sin token -> 401 + WWW-Authenticate
+PASS  esquema distinto de Bearer -> 401
+PASS  JWT alg=none -> 401
+PASS  JWT firmado con otro secreto -> 401
+PASS  JWT expirado -> 401
+PASS  JWT con audiencia incorrecta -> 401
+PASS  JWT con emisor incorrecto -> 401
+PASS  scope read no puede transferir -> 403
+PASS  transferencia válida -> 200
+PASS  cuenta inválida rechazada: 'abc-1234'
+PASS  cuenta inválida rechazada: 'ABCD-1234'
+PASS  cuenta inválida rechazada: 'ABC-123'
+PASS  cuenta inválida rechazada: 'ABC-12345'
+PASS  cuenta inválida rechazada: 'ABC_1234'
+PASS  cuenta inválida rechazada: "ABC-1234' OR '1'='1"
+PASS  cuenta inválida rechazada: 'ABC-1234; id'
+PASS  cuenta inválida rechazada: '../../etc/passwd'
+PASS  cuenta inválida rechazada: '<script>alert(1)</script>'
+PASS  cuenta inválida rechazada: 'ABC-1234\n'
+PASS  cuenta inválida rechazada: 'ABC-1234 '
+PASS  monto inválido rechazado: 0
+PASS  monto inválido rechazado: -5
+PASS  monto inválido rechazado: 1000001
+PASS  monto inválido rechazado: '100'
+PASS  monto inválido rechazado: 1.5
+PASS  monto inválido rechazado: True
+PASS  monto inválido rechazado: None
+PASS  JSON inválido rechazado: '{"account":"ABC-1234","amount":1,"role'
+PASS  JSON inválido rechazado: '{"account":"ABC-1234","account":"ABC-1'
+PASS  JSON inválido rechazado: '{"account":"ABC-1234"}'
+PASS  JSON inválido rechazado: '{"account":"ABC-1234","amount":1'
+PASS  JSON inválido rechazado: '{"account":"ABC-1234","amount":1} basu'
+PASS  JSON inválido rechazado: '{"account":"ABC-1234","amount":01}'
+PASS  JSON inválido rechazado: '{"account":"ABC-1234","amount":1e3}'
+PASS  content-type incorrecto -> 415
+PASS  cuerpo demasiado grande -> 413
+PASS  ruta inexistente -> 404
+PASS  100 solicitudes/min permitidas
+PASS  solicitud 101 -> 429
+PASS  429 incluye Retry-After válido
+PASS  ventana de 2 solicitudes se agota
+PASS  la ventana se reinicia
+PASS  rate limit también protege /oauth/token

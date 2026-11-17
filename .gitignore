@@ -5,3 +5,12 @@ instrucciones*
 Makefile
 metadata.yaml
 template.latex
+
+# --- Laboratorio local (no se versiona) ---
+.lab/
+result
+result-*
+# --- Artefactos de compilación de la parte 2 ---
+parte2/api
+parte2/*.o
+__pycache__/

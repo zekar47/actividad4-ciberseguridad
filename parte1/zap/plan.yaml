@@ -1,0 +1,54 @@
+env:
+  contexts:
+    - name: dvwa
+      urls:
+        - http://127.0.0.1:8081
+      includePaths:
+        - http://127\.0\.0\.1:8081.*
+      excludePaths:
+        - http://127\.0\.0\.1:8081/(setup|logout)\.php.*
+        - http://127\.0\.0\.1:8081/phpinfo\.php.*
+      authentication:
+        method: manual
+      sessionManagement:
+        method: cookie
+      technology:
+        include: []
+        exclude: []
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: spider
+    parameters:
+      context: dvwa
+      maxDuration: 5
+      maxDepth: 6
+      threadCount: 4
+      processForm: true
+      postForm: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 3
+
+  - type: activeScan
+    parameters:
+      context: dvwa
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 12
+      threadPerHost: 4
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: .
+      reportFile: zap-report.html
+
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: .
+      reportFile: zap-report.json

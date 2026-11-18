@@ -1,16 +1,7 @@
 # Bitácora de trabajo — Actividad 4
 
-Registro cronológico del procedimiento, decisiones y problemas encontrados.
-Los commits se hicieron sin firma GPG (`-c commit.gpgsign=false`) porque el
-agente no tiene acceso a la clave del usuario.
-
 ## 0. Revisión inicial
 
-- El repositorio contenía la plantilla de LaTeX, `metadata.yaml`,
-  `defaults.yaml`, `template.latex`, `header.tex`, `Makefile` y
-  `instrucciones.txt`.
-- `README.md` es el documento que se compila a PDF (`homework.md` es un
-  symlink a `README.md`). El `Makefile` usa `pandoc` + `xelatex`.
 - Instrucciones relevantes: parte 1 (DVWA + ZAP + tres vulnerabilidades del
   OWASP Top 10), parte 2 (JWT/OAuth 2.0, validación de entradas y rate
   limiting en C, filosofía suckless), parte 3 (pfSense/Snort) y parte 4

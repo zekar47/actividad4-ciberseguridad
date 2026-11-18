@@ -1,0 +1,2 @@
+# A4-P3: detectar escaneo de puertos SYN (15 SYNs del mismo origen en 5 s).
+alert tcp any any -> $HOME_NET any (msg:"A4-P3 POSIBLE ESCANEO DE PUERTOS SYN"; flags:S; threshold: type both, track by_src, count 15, seconds 5; sid:1000001; rev:1; classtype:attempted-recon;)

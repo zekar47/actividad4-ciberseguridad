@@ -1,0 +1,4 @@
+Nov 18 16:11:06 OPT1 A4-P3: bloquear trafico no autorizado a VLAN interna (1795015750) 192.168.10.10:46311 192.168.20.10:23 TCP:S
+Nov 18 16:11:06 OPT1 A4-P3: bloquear trafico no autorizado a VLAN interna (1795015750) 192.168.10.10:46311 192.168.20.10:22 TCP:S
+Nov 18 16:11:06 OPT1 A4-P3: permitir HTTP al servidor interno (1795015745) 192.168.10.10:46311 192.168.20.10:80 TCP:S
+Nov 18 16:11:07 OPT1 A4-P3: bloquear trafico no autorizado a VLAN interna (1795015750) 192.168.10.10:46313 192.168.20.10:21 TCP:S

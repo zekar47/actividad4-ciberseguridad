@@ -1,0 +1,21 @@
+=== A4-P3 | atacante 192.168.10.10 -> objetivo 192.168.20.10 ===
+Starting Nmap 7.95 ( https://nmap.org ) at 2026-11-18 16:15 UTC
+Nmap scan report for 192.168.20.10
+Host is up (0.00065s latency).
+Not shown: 199 filtered tcp ports (no-response)
+PORT   STATE SERVICE
+80/tcp open  http
+
+Nmap done: 1 IP address (1 host up) scanned in 2.08 seconds
+=== HTTP permitido por regla pass ===
+Servidor interno A4-P3
+
+=== dominio de phishing bloqueado por Unbound ===
+Server:		192.168.10.1
+Address:	192.168.10.1:53
+
+** server can't find phishing.test: NXDOMAIN
+
+** server can't find phishing.test: NXDOMAIN
+
+localhost:~#

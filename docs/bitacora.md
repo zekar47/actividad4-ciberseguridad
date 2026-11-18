@@ -12,8 +12,9 @@ agente no tiene acceso a la clave del usuario.
 - `README.md` es el documento que se compila a PDF (`homework.md` es un
   symlink a `README.md`). El `Makefile` usa `pandoc` + `xelatex`.
 - Instrucciones relevantes: parte 1 (DVWA + ZAP + tres vulnerabilidades del
-  OWASP Top 10) y parte 2 (JWT/OAuth 2.0, validación de entradas y rate
-  limiting en C, filosofía suckless).
+  OWASP Top 10), parte 2 (JWT/OAuth 2.0, validación de entradas y rate
+  limiting en C, filosofía suckless), parte 3 (pfSense/Snort) y parte 4
+  (matriz de riesgos 5×5).
 
 ## 1. Primer intento con Docker (descartado)
 
@@ -128,7 +129,8 @@ las respuestas en `parte1/evidence/`:
 Se implementó `parte2/api.c` (un solo archivo, libc/POSIX):
 
 - servidor HTTP/1.1 mínimo con `socket`/`accept`/`recv`/`send`;
-- SHA-256 y HMAC-SHA-256 propios (sin OpenSSL);
+- inicialmente SHA-256 y HMAC-SHA-256 propios; después se sustituyeron por
+  `EVP_Q_mac` de OpenSSL (ver §8);
 - JWT HS256: emisión, decodificación base64url, verificación de firma,
   `alg`, `iss`, `aud`, `exp`, `iat`, `jti` y vida máxima;
 - OAuth 2.0 `client_credentials` en `/oauth/token` con scopes `read` y
@@ -204,3 +206,108 @@ Detalles de implementación que costaron tiempo:
 `make` usa pandoc + xelatex y genera `homework.pdf` con las figuras
 integradas. El PDF no se versiona (`homework*` en `.gitignore`); se regenera
 con `make`.
+
+## 8. Migración del HMAC a OpenSSL
+
+El usuario aclaró que *dependencias mínimas* no significa *sin
+dependencias*. Se eliminaron ~160 líneas de SHA-256/HMAC caseros de
+`parte2/api.c` y se sustituyeron por una envoltura delgada alrededor de
+`EVP_Q_mac(NULL, "HMAC", NULL, "SHA256", ...)`. `parte2/Makefile` enlaza
+ahora `-lcrypto` y el comentario del build refleja la dependencia. El
+binario sigue compilando con `-Werror` y las **51/51** pruebas siguen
+pasando; se regeneró `parte2/evidence/test-results.txt`.
+
+**Decisión:** mantener una sola dependencia externa, pero que sea una
+biblioteca criptográfica auditada. Los versos del informe que decían «sin
+dependencias externas» se actualizaron a «OpenSSL como única dependencia».
+
+## 9. Parte 3: pfSense, Snort y filtrado DNS
+
+### 9.1 Arranque del laboratorio
+
+- Se descargó `pfSense-CE-memstick-serial-2.7.2-RELEASE-amd64.img.gz` y se
+  verificó el SHA-256 publicado por Netgate. El primer intento de verificar
+  falló porque el archivo `.sha256` referencia el nombre completo y el
+  descargado tenía otro nombre; se renombraron ambos y la suma coincidió.
+- Se descargó `alpine-virt-3.20.3-x86_64.iso` para las dos sondas.
+- El instalador de pfSense se automatizó primero con `pexpect`, pero el
+  menú `newt` dibujaba con códigos de terminal que hacían frágil la
+  coincidencia de texto. Se abandonó ese enfoque y se usó `tmux` como
+  terminal interactiva: `tmux send-keys` y `tmux capture-pane` permiten
+  conducir el instalador de forma visible y repetible.
+- El primer `qemu-system-x86_64` con `-drive ...,bootindex=0` falló porque el
+  formato `raw` no admite `bootindex`; se pasó a `-drive if=none` +
+  `-device virtio-blk-pci,drive=...,bootindex=N`.
+- Se instaló pfSense en `pfSense.qcow2` de 8 GB, se asignaron `vtnet0`…
+  `vtnet3` a WAN/LAN/OPT1/OPT2 y se fijaron OPT1=`192.168.10.1/24` y
+  OPT2=`192.168.20.1/24` desde el menú de consola.
+- La GUI no respondía en `8443` porque el `hostfwd` apuntaba a una IP de
+  gestión inexistente; se cambió a
+  `hostfwd=tcp:127.0.0.1:8443-192.168.1.1:443` y tras reiniciar funcionó.
+
+### 9.2 Paquetes y GUI
+
+- `nixpkgs.snort` no enlaza en este sistema (`appid_log` sin definir), así
+  que no se añadió al *flake*. Se instalaron Snort y pfBlockerNG desde el
+  propio pfSense con `pkg install`: `pfSense-pkg-snort-4.1.6_17`,
+  `pfSense-pkg-pfBlockerNG-devel-3.2.0_20` y, como dependencias, Snort
+  2.9.20 y nmap 7.94.
+- Se añadió `devShells.parte3` al flake con `qemu`, `pexpect`, `pyte`,
+  `nmap`, `curl`, `jq` y `openssl`. La GUI se automatizó con Selenium desde
+  `devShells.screenshots`.
+- Los campos del login son `usernamefld`/`passwordfld` (no `username`).
+- El botón *Apply Changes* no es un `input` ni un enlace: es
+  `<button type="submit" name="apply" value="Apply Changes">`. El localizador
+  que funciona es `button[name="apply"]`.
+- En el editor de reglas, el puerto HTTP se selecciona por valor `80` en
+  `dstbeginport`; no existe la opción `other` que se usó en el primer
+  intento.
+- En la pestaña de reglas de Snort, el guardado es
+  `button#save`, no un `input[type=submit]`.
+
+### 9.3 Reglas, Snort y DNS
+
+- Se crearon los alias `VLAN_INTERNA` y `VLAN_NO_CONFIABLE` y tres reglas en
+  OPT1: pass HTTP, pass DNS al propio firewall y block al resto de la VLAN
+  interna, todas con log. Se aplicaron desde la GUI.
+- La regla personalizada de Snort (SID `1000001`) detecta 15 SYN en 5 s
+  desde el mismo origen. Se guardó en `custom.rules` de la interfaz OPT1 y
+  Snort se arrancó con `snort_vtnet2_start`.
+- *Block Offenders* está activado, pero la *pass list* por defecto incluye
+  las redes locales, por lo que el atacante del laboratorio no fue añadido a
+  la tabla de bloqueos; la validación es de detección, no de bloqueo IPS.
+- El filtrado se implementó con `local-zone ... always_nxdomain` en las
+  opciones personalizadas de Unbound. Antes se publicó un `local-data` de
+  prueba y se verificó que `phishing.test` resolvía; después devuelve
+  NXDOMAIN. El botón *Display Custom Options* (`btnadvcustom`) debe
+  pulsarse antes de escribir en `custom_options`.
+
+### 9.4 Sondas y validación
+
+- Alpine arranca por serial (`ttyS0`) y permite entrar como `root` sin
+  contraseña. El ISO solo trae sus propios `apks`, así que `apk add nmap`
+  falló hasta que se añadieron los repositorios `v3.20/main` y
+  `v3.20/community`. La sonda atacante necesitó una segunda NIC en user-mode
+  para instalar el paquete.
+- El objetivo no incluye `httpd`; se improvisó un servidor HTTP con un bucle
+  de `nc -l -p 80` que devuelve una respuesta fija.
+- Se añadió la ruta `192.168.20.0/24 vía 192.168.10.1` en el atacante. Sin
+  ella, el tráfico salía por la NIC de Internet.
+- `nmap -Pn -sS -T4 -p 1-200 192.168.20.10` devolvió 1 puerto abierto (80) y
+  199 filtrados; `wget` obtuvo el texto del servidor interno; `nslookup`
+  devolvió NXDOMAIN para los dominios bloqueados.
+- La bitácora del firewall mostró los SYN bloqueados y el SYN permitido; la
+  pestaña de alertas de Snort mostró `1:1000001`. Se capturaron las pantallas
+  `07`…`12` y se renderizó la consola del atacante como `13-ataque-nmap.png`.
+- Todo el procedimiento quedó en `parte3/README.md`, `setup-gui.py`, los
+  scripts de arranque y los archivos de configuración/evidencia.
+
+## 10. Parte 4: matriz de riesgos
+
+Se construyeron las escalas de probabilidad e impacto (1–5), la matriz 5×5 y
+doce riesgos identificados (R1–R12) que cubren las tres partes anteriores.
+Se priorizaron con bandas de riesgo de cinco niveles y se propuso una
+mitigación concreta para cada uno, indicando cuál ya estaba implementado y
+cuál sigue pendiente. El plan de remediación se organizó en P0–P3; los
+riesgos críticos son la inyección SQL, el control de acceso roto y el acceso
+no autorizado a la VLAN interna.

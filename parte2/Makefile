@@ -1,10 +1,10 @@
-# a4-api -- build suckless: un binario, sin dependencias externas.
+# a4-api -- build suckless: un binario y libcrypto (OpenSSL).
 CC      ?= cc
 CPPFLAGS = -D_FORTIFY_SOURCE=2 -I.
 CFLAGS  = -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
           -fstack-protector-strong -fPIE
 LDFLAGS = -pie -Wl,-z,relro,-z,now
-LDLIBS  =
+LDLIBS  = -lcrypto
 
 PREFIX  ?= /usr/local
 BIN      = api

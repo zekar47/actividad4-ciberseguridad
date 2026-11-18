@@ -1,5 +1,5 @@
 {
-  description = "Actividad 4: laboratorio DVWA/ZAP (parte 1) y API segura en C (parte 2)";
+  description = "Actividad 4: DVWA/ZAP, API segura en C, pfSense/Snort y matriz de riesgos";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -20,7 +20,7 @@
             curl
             jq
             python3
-            # Parte 2: API en C sin dependencias externas
+            # Parte 2: API en C (libcrypto es su unica dependencia externa)
             gcc
             gnumake
             # Utilidades del laboratorio
@@ -47,6 +47,20 @@
             (python3.withPackages (ps: [ ps.selenium ps.pillow ]))
             curl
             jq
+          ];
+        };
+
+        # Laboratorio de la parte 3: pfSense + Snort + sondas.
+        parte3 = pkgs.mkShell {
+          name = "a4-parte3";
+
+          packages = with pkgs; [
+            qemu
+            (python3.withPackages (ps: [ ps.pexpect ps.pyte ]))
+            nmap
+            curl
+            jq
+            openssl
           ];
         };
       };

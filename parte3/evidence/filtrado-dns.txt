@@ -1,0 +1,11 @@
+Antes (local-data de prueba, dominio resoluble):
+  $ nslookup phishing.test 192.168.10.1
+  Server:  192.168.10.1
+  Name:    phishing.test
+  Address: 192.168.20.10
+
+Despues (local-zone always_nxdomain):
+  $ nslookup phishing.test 192.168.10.1
+  ** server can't find phishing.test: NXDOMAIN
+  $ nslookup banco-falso.test 192.168.10.1
+  ** server can't find banco-falso.test: NXDOMAIN

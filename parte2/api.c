@@ -25,6 +25,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <openssl/evp.h>
+
 #include "config.h"
 
 /* ------------------------------------------------------------------------- */
@@ -37,169 +39,24 @@ static int g_rate_limit = RATE_LIMIT;
 static int g_rate_window = RATE_WINDOW;
 
 /* ------------------------------------------------------------------------- */
-/* SHA-256 / HMAC-SHA-256 (implementación compacta, sin OpenSSL)             */
+/* HMAC-SHA-256 (OpenSSL libcrypto)                                          */
 /* ------------------------------------------------------------------------- */
 
-struct sha256 {
-	uint32_t h[8];
-	uint64_t bits;
-	unsigned char buf[64];
-	size_t len;
-};
-
-static uint32_t rotr32(uint32_t x, int n)
+/*
+ * Se delega la primitiva criptográfica a OpenSSL en lugar de mantener una
+ * implementación propia. El resto del servidor sigue siendo libc/POSIX; esta
+ * es la única dependencia externa y evita errores sutiles en criptografía.
+ */
+static int hmac_sha256(const unsigned char *key, size_t keylen,
+		       const unsigned char *msg, size_t msglen,
+		       unsigned char out[32])
 {
-	return (x >> n) | (x << (32 - n));
-}
+	size_t outlen = 0;
 
-static const uint32_t sha256_k[64] = {
-	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
-	0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
-	0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-	0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
-	0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-	0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-	0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-	0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-	0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-	0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
-	0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-	0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
-	0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-	0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-};
-
-static void sha256_block(struct sha256 *s, const unsigned char *p)
-{
-	uint32_t w[64];
-	uint32_t a, b, c, d, e, f, g, h;
-	int i;
-
-	for (i = 0; i < 16; i++) {
-		w[i] = ((uint32_t)p[i * 4] << 24) |
-		       ((uint32_t)p[i * 4 + 1] << 16) |
-		       ((uint32_t)p[i * 4 + 2] << 8) |
-		       (uint32_t)p[i * 4 + 3];
-	}
-	for (i = 16; i < 64; i++) {
-		uint32_t s0 = rotr32(w[i - 15], 7) ^ rotr32(w[i - 15], 18) ^ (w[i - 15] >> 3);
-		uint32_t s1 = rotr32(w[i - 2], 17) ^ rotr32(w[i - 2], 19) ^ (w[i - 2] >> 10);
-		w[i] = w[i - 16] + s0 + w[i - 7] + s1;
-	}
-
-	a = s->h[0]; b = s->h[1]; c = s->h[2]; d = s->h[3];
-	e = s->h[4]; f = s->h[5]; g = s->h[6]; h = s->h[7];
-
-	for (i = 0; i < 64; i++) {
-		uint32_t s1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
-		uint32_t ch = (e & f) ^ (~e & g);
-		uint32_t t1 = h + s1 + ch + sha256_k[i] + w[i];
-		uint32_t s0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
-		uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
-		uint32_t t2 = s0 + maj;
-
-		h = g; g = f; f = e; e = d + t1;
-		d = c; c = b; b = a; a = t1 + t2;
-	}
-
-	s->h[0] += a; s->h[1] += b; s->h[2] += c; s->h[3] += d;
-	s->h[4] += e; s->h[5] += f; s->h[6] += g; s->h[7] += h;
-}
-
-static void sha256_init(struct sha256 *s)
-{
-	s->h[0] = 0x6a09e667; s->h[1] = 0xbb67ae85;
-	s->h[2] = 0x3c6ef372; s->h[3] = 0xa54ff53a;
-	s->h[4] = 0x510e527f; s->h[5] = 0x9b05688c;
-	s->h[6] = 0x1f83d9ab; s->h[7] = 0x5be0cd19;
-	s->bits = 0;
-	s->len = 0;
-}
-
-static void sha256_update(struct sha256 *s, const void *data, size_t len)
-{
-	const unsigned char *p = data;
-
-	s->bits += (uint64_t)len * 8;
-	while (len > 0) {
-		size_t n = 64 - s->len;
-		if (n > len)
-			n = len;
-		memcpy(s->buf + s->len, p, n);
-		s->len += n;
-		p += n;
-		len -= n;
-		if (s->len == 64) {
-			sha256_block(s, s->buf);
-			s->len = 0;
-		}
-	}
-}
-
-static void sha256_final(struct sha256 *s, unsigned char out[32])
-{
-	uint64_t bits = s->bits;
-	size_t i = s->len;
-	int j;
-
-	s->buf[i++] = 0x80;
-	if (i > 56) {
-		while (i < 64)
-			s->buf[i++] = 0;
-		sha256_block(s, s->buf);
-		i = 0;
-	}
-	while (i < 56)
-		s->buf[i++] = 0;
-	for (j = 7; j >= 0; j--)
-		s->buf[i++] = (unsigned char)((bits >> (j * 8)) & 0xff);
-	sha256_block(s, s->buf);
-
-	for (j = 0; j < 8; j++) {
-		out[j * 4] = (unsigned char)(s->h[j] >> 24);
-		out[j * 4 + 1] = (unsigned char)(s->h[j] >> 16);
-		out[j * 4 + 2] = (unsigned char)(s->h[j] >> 8);
-		out[j * 4 + 3] = (unsigned char)(s->h[j]);
-	}
-}
-
-static void hmac_sha256(const unsigned char *key, size_t keylen,
-			const unsigned char *msg, size_t msglen,
-			unsigned char out[32])
-{
-	unsigned char k[64] = {0};
-	unsigned char ipad[64], opad[64], inner[32];
-	struct sha256 c;
-	size_t i;
-
-	if (keylen > sizeof(k)) {
-		sha256_init(&c);
-		sha256_update(&c, key, keylen);
-		sha256_final(&c, k);
-	} else {
-		memcpy(k, key, keylen);
-	}
-	for (i = 0; i < sizeof(k); i++) {
-		ipad[i] = k[i] ^ 0x36;
-		opad[i] = k[i] ^ 0x5c;
-	}
-
-	sha256_init(&c);
-	sha256_update(&c, ipad, sizeof(ipad));
-	sha256_update(&c, msg, msglen);
-	sha256_final(&c, inner);
-
-	sha256_init(&c);
-	sha256_update(&c, opad, sizeof(opad));
-	sha256_update(&c, inner, sizeof(inner));
-	sha256_final(&c, out);
-
-	memset(k, 0, sizeof(k));
-	memset(ipad, 0, sizeof(ipad));
-	memset(opad, 0, sizeof(opad));
-	memset(inner, 0, sizeof(inner));
+	if (EVP_Q_mac(NULL, "HMAC", NULL, "SHA256", NULL,
+		      key, keylen, msg, msglen, out, 32, &outlen) == NULL)
+		return -1;
+	return outlen == 32 ? 0 : -1;
 }
 
 /* Comparación en tiempo constante (para secretos y firmas). */
@@ -624,8 +481,11 @@ static int jwt_issue(const char *sub, const char *scope, char *out, size_t cap)
 	if (n < 0 || (size_t)n >= sizeof(signing))
 		return -1;
 
-	hmac_sha256((const unsigned char *)g_jwt_secret, strlen(g_jwt_secret),
-		    (const unsigned char *)signing, strlen(signing), mac);
+	if (hmac_sha256((const unsigned char *)g_jwt_secret,
+			strlen(g_jwt_secret),
+			(const unsigned char *)signing, strlen(signing),
+			mac) < 0)
+		return -1;
 	if (b64url_encode(mac, sizeof(mac), sb64, sizeof(sb64)) == 0)
 		return -1;
 
@@ -683,8 +543,11 @@ static int jwt_verify(const char *token, struct claims *out)
 	if (f && (f->type != JF_STR || strcmp(f->s, "JWT") != 0))
 		return JWT_BAD;
 
-	hmac_sha256((const unsigned char *)g_jwt_secret, strlen(g_jwt_secret),
-		    (const unsigned char *)token, (size_t)(dot2 - token), mac);
+	if (hmac_sha256((const unsigned char *)g_jwt_secret,
+			strlen(g_jwt_secret),
+			(const unsigned char *)token,
+			(size_t)(dot2 - token), mac) < 0)
+		return JWT_BAD;
 	if (!ct_equal(mac, sig, sizeof(mac)))
 		return JWT_BAD;
 

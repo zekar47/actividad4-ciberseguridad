@@ -1,9 +1,11 @@
 # Parte 2 — API segura en C (OAuth 2.0 + JWT + validación + rate limiting)
 
-Implementación de un endpoint HTTP mínimo en C11, sin frameworks ni
-dependencias externas (solo libc/POSIX). Sigue la filosofía *suckless*:
-un único binario, configuración en `config.def.h`, código legible y
-herramientas pequeñas que hacen una sola cosa.
+Implementación de un endpoint HTTP mínimo en C11, sin frameworks y con una
+única dependencia externa: `libcrypto` de OpenSSL para HMAC-SHA-256. El
+resto del código usa solo libc/POSIX. Sigue la filosofía *suckless*: un único
+binario, configuración en `config.def.h`, código legible y herramientas
+pequeñas que hacen una sola cosa. La criptografía se delega a una biblioteca
+auditada en lugar de reimplementarla.
 
 ## Arranque rápido
 

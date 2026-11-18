@@ -15,9 +15,6 @@ credentials*), JWT HS256, validación estricta de entradas y *rate limiting*
 de 100 solicitudes por minuto. La implementación se probó con 51 casos
 automatizados, todos correctos.
 
-El laboratorio es reproducible mediante un *flake* de Nix: no requiere
-Docker, `sudo` ni modificar el sistema anfitrión.
-
 # Introducción
 
 La superficie de ataque de una aplicación moderna incluye tanto el navegador
@@ -145,6 +142,8 @@ First name: smithy  | Surname: 5f4dcc3b5aa765d61d8327deb882cf99
 Los valores de `password` son hashes MD5 sin *salt*; el último corresponde a
 `password`.
 
+![Inyección SQL en DVWA: la consulta `UNION` devuelve los hashes MD5 de todos los usuarios.](docs/screenshots/01-sqli.png){width=95%}
+
 ### A4-P1-02 — XSS reflejado en `/vulnerabilities/xss_r/`
 
 | Campo | Valor |
@@ -168,6 +167,8 @@ Respuesta observada:
 ```html
 <pre>Hello <script>alert(document.cookie)</script></pre>
 ```
+
+![XSS reflejado: el script se ejecuta y escribe la cookie de sesión (`PHPSESSID`) dentro de la página.](docs/screenshots/02-xss.png){width=95%}
 
 ### A4-P1-03 — Broken Access Control / IDOR en `/vulnerabilities/authbypass/`
 
@@ -197,6 +198,8 @@ Respuesta observada (sin sesión, `200 OK`):
  {"user_id":"5","first_name":"Bob","surname":"Smith"}]
 ```
 
+![Control de acceso roto: `get_user_data.php` devuelve todos los usuarios en una petición sin cookie de sesión.](docs/screenshots/03-authbypass.png){width=95%}
+
 `change_user_details.php` también concatena los valores en la consulta de
 escritura:
 
@@ -220,6 +223,8 @@ divulgación de errores de aplicación (90022, 12), CSP ausente o incompleta
 ruta desconocida a `login.php`. ZAP no detecta el control de acceso roto
 porque es un fallo de lógica, sin firma reconocible; por eso se validó
 manualmente.
+
+![Resumen del informe de ZAP 2.17.0: 4 alertas de riesgo alto, 9 medias, 7 bajas y 6 informativas sobre `127.0.0.1:8081`.](docs/screenshots/04-zap.png){width=100%}
 
 ## 1.6 Limitaciones de la parte 1
 
@@ -281,6 +286,8 @@ Respuesta:
 ```json
 {"access_token":"eyJ...","token_type":"Bearer","expires_in":900,"scope":"read transfer"}
 ```
+
+![Flujo real de la API: obtención del JWT, consulta de perfil, transferencia válida, intento de inyección SQL rechazado y límite de tasa con `429` + `Retry-After`.](docs/screenshots/05-flujo-api.png){width=100%}
 
 ## 2.3 OAuth 2.0 y JWT
 
@@ -346,6 +353,8 @@ nix develop .. -c make test
 Resultado final: **51/51 pruebas correctas**. Evidencia:
 `parte2/evidence/test-results.txt`.
 
+![Salida de `make test`: 51/51 pruebas correctas, incluidas las de OAuth, JWT, inyección y rate limiting.](docs/screenshots/06-pruebas-api.png){width=90%}
+
 También se incluye `parte2/postman_collection.json` para probar el flujo
 desde Postman: primero se ejecuta **OAuth 2.0 → Token** (guarda
 `accessToken`) y después las peticiones de **API**.
@@ -406,8 +415,11 @@ nix develop
 cd parte2
 nix develop .. -c make test
 
-# Compilar el informe
+# Capturas del informe (con el laboratorio levantado)
 cd ..
+nix develop .#screenshots -c python3 scripts/capture-screenshots.py
+
+# Compilar el informe
 make
 ```
 
@@ -421,4 +433,11 @@ make
 | `parte1/evidence/manual-xss.txt` | Evidencia de XSS |
 | `parte1/evidence/manual-authbypass.txt` | Evidencia de control de acceso roto |
 | `parte2/evidence/test-results.txt` | Resultado de las 51 pruebas |
+| `docs/screenshots/01-sqli.png` | Captura de la inyección SQL |
+| `docs/screenshots/02-xss.png` | Captura del XSS reflejado |
+| `docs/screenshots/03-authbypass.png` | Captura del control de acceso roto |
+| `docs/screenshots/04-zap.png` | Resumen del informe de ZAP |
+| `docs/screenshots/05-flujo-api.png` | Flujo OAuth 2.0/JWT/validación |
+| `docs/screenshots/06-pruebas-api.png` | Salida de las pruebas de la API |
+| `scripts/capture-screenshots.py` | Generador reproducible de las capturas |
 | `docs/bitacora.md` | Procedimiento cronológico y decisiones |

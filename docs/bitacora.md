@@ -172,3 +172,35 @@ Resultado final: **51/51 correctas** (`parte2/evidence/test-results.txt`).
 - `parte2/README.md`: diseño, endpoints, reglas, pruebas y límites.
 - `parte2/postman_collection.json`: colección lista para importar.
 - `README.md`: informe integrado que se compila con `make`.
+
+### Capturas del informe
+
+Las seis figuras de `README.md` se generan con Selenium y Chromium desde el
+laboratorio real; no son montajes:
+
+```sh
+nix develop .#screenshots -c python3 scripts/capture-screenshots.py
+```
+
+El *script* inicia sesión en DVWA, reproduce la inyección SQL y el XSS,
+consulta `get_user_data.php` sin cookie, abre el informe HTML de ZAP y, para
+la parte 2, arranca `parte2/api` en un puerto efímero y transcribe el flujo
+real (token, perfil, transferencia, inyección rechazada y `429`). Las salidas
+se guardan en `docs/screenshots/01-sqli.png` … `06-pruebas-api.png`.
+
+Detalles de implementación que costaron tiempo:
+
+- Chromium necesita `--no-sandbox` en este entorno y `chromedriver` debe
+  coincidir con su versión (157).
+- El visor JSON de Chrome no envuelve la línea; hay que dar estilo al `body`
+  y recortar el margen blanco con Pillow.
+- `wait_text` debe tolerar `StaleElementReferenceException`: DVWA recarga la
+  página al cambiar de nivel de seguridad.
+- El informe de ZAP no contiene el texto «ZAP Report»; la espera usa
+  «Summary of Alerts».
+
+### Compilación del PDF
+
+`make` usa pandoc + xelatex y genera `homework.pdf` con las figuras
+integradas. El PDF no se versiona (`homework*` en `.gitignore`); se regenera
+con `make`.

@@ -1,5 +1,5 @@
 Pruebas de a4-api
-Fecha: 2026-11-16 23:45:25
+Fecha: 2026-11-17 21:59:03
 Resultado: 51/51 correctas
 
 PASS  healthz responde 200
